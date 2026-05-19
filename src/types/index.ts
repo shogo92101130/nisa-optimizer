@@ -7,10 +7,13 @@ export type FundCategory =
   | "不動産(REIT)"
   | "バランス";
 
+export type NisaType = "tsumitate" | "seichoh" | "both";
+
 export type Fund = {
   id: string;
   name: string;
   category: FundCategory;
+  nisaType: NisaType;
   monthlyReturns: number[];
   expenseRatio: number;
   annualReturn?: number;

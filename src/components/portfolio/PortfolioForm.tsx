@@ -12,10 +12,13 @@ import { SimulationResultCard } from "@/components/simulation/SimulationResultCa
 import { MOCK_FUNDS } from "@/mock/funds";
 import { runSimulation } from "@/utils/finance/calculations";
 import { NISA_LIMITS } from "@/constants/nisa";
-import type { PortfolioItem, SimulationResult, NisaSettings } from "@/types";
+import type { SimulationResult, NisaSettings } from "@/types";
+
+// 入力用に allocation を文字列で管理（"080"問題を防ぐため）
+type PortfolioEntry = { fundId: string; allocationStr: string };
 
 export function PortfolioForm() {
-  const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
+  const [entries, setEntries] = useState<PortfolioEntry[]>([]);
   const [monthlyAmount, setMonthlyAmount] = useState("30000");
   const [years, setYears] = useState("20");
   const [showSearch, setShowSearch] = useState(false);
@@ -24,29 +27,33 @@ export function PortfolioForm() {
 
   const nisa: NisaSettings = { type: "tsumitate", annualLimit: NISA_LIMITS.tsumitate };
 
-  const totalAllocation = portfolio.reduce((s, p) => s + p.allocation, 0);
+  // 合計を数値で計算
+  const totalAllocation = entries.reduce((s, e) => s + (parseInt(e.allocationStr, 10) || 0), 0);
+
   const isValid =
+    entries.length > 0 &&
     totalAllocation === 100 &&
-    portfolio.length > 0 &&
     Number(monthlyAmount) > 0 &&
     Number(years) >= 1;
 
   function addFund(fundId: string) {
-    if (portfolio.find((p) => p.fundId === fundId)) return;
-    const remaining = 100 - totalAllocation;
-    setPortfolio((prev) => [...prev, { fundId, allocation: Math.max(0, remaining) }]);
+    if (entries.find((e) => e.fundId === fundId)) return;
+    const remaining = Math.max(0, 100 - totalAllocation);
+    setEntries((prev) => [...prev, { fundId, allocationStr: String(remaining) }]);
     setShowSearch(false);
-  }
-
-  function removeFund(fundId: string) {
-    setPortfolio((prev) => prev.filter((p) => p.fundId !== fundId));
     setResult(null);
   }
 
-  function updateAllocation(fundId: string, value: string) {
-    const num = Math.min(100, Math.max(0, Number(value) || 0));
-    setPortfolio((prev) =>
-      prev.map((p) => (p.fundId === fundId ? { ...p, allocation: num } : p))
+  function removeFund(fundId: string) {
+    setEntries((prev) => prev.filter((e) => e.fundId !== fundId));
+    setResult(null);
+  }
+
+  function handleAllocationChange(fundId: string, raw: string) {
+    // 先頭の余分なゼロを除去しつつ空文字は許容
+    const cleaned = raw === "" ? "" : String(Math.min(100, Math.max(0, parseInt(raw, 10) || 0)));
+    setEntries((prev) =>
+      prev.map((e) => (e.fundId === fundId ? { ...e, allocationStr: cleaned } : e))
     );
     setResult(null);
   }
@@ -55,9 +62,12 @@ export function PortfolioForm() {
     if (!isValid) return;
     setIsRunning(true);
     setResult(null);
-    // 重い計算を非同期で処理してUIをブロックしない
     await new Promise((r) => setTimeout(r, 0));
     try {
+      const portfolio = entries.map((e) => ({
+        fundId: e.fundId,
+        allocation: parseInt(e.allocationStr, 10) || 0,
+      }));
       const res = runSimulation({
         portfolio,
         monthlyAmount: Number(monthlyAmount),
@@ -93,35 +103,41 @@ export function PortfolioForm() {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {portfolio.length === 0 ? (
+          {entries.length === 0 ? (
             <div className="flex flex-col items-center py-8 text-muted-foreground">
               <p className="text-sm">銘柄を追加してください</p>
             </div>
           ) : (
-            portfolio.map((item) => {
-              const fund = MOCK_FUNDS.find((f) => f.id === item.fundId);
+            entries.map((entry) => {
+              const fund = MOCK_FUNDS.find((f) => f.id === entry.fundId);
               if (!fund) return null;
               return (
                 <div
-                  key={item.fundId}
+                  key={entry.fundId}
                   className="flex items-center gap-3 p-3 rounded-xl bg-muted/40"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium truncate">{fund.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{fund.category}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-xs text-muted-foreground">{fund.category}</span>
+                      <Badge variant="outline" className="text-xs py-0 h-4">
+                        {fund.nisaType === "both" ? "つみたて・成長" : "成長投資枠"}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <Input
                       type="number"
                       min={0}
                       max={100}
-                      value={item.allocation}
-                      onChange={(e) => updateAllocation(item.fundId, e.target.value)}
+                      value={entry.allocationStr}
+                      onChange={(e) => handleAllocationChange(entry.fundId, e.target.value)}
+                      onFocus={(e) => e.target.select()} // 全選択で"080"問題を解消
                       className="w-16 h-8 text-center text-sm"
                     />
                     <span className="text-xs text-muted-foreground">%</span>
                     <button
-                      onClick={() => removeFund(item.fundId)}
+                      onClick={() => removeFund(entry.fundId)}
                       className="p-1 text-muted-foreground hover:text-destructive transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -132,17 +148,17 @@ export function PortfolioForm() {
             })
           )}
 
-          {totalAllocation !== 100 && portfolio.length > 0 && (
+          {totalAllocation !== 100 && entries.length > 0 && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10 text-destructive text-xs">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              <span>合計を100%にしてください（現在{totalAllocation}%）</span>
+              <span>合計を100%にしてください（現在 {totalAllocation}%）</span>
             </div>
           )}
 
           {showSearch ? (
             <FundSearch
               onSelect={addFund}
-              selectedIds={portfolio.map((p) => p.fundId)}
+              selectedIds={entries.map((e) => e.fundId)}
             />
           ) : (
             <button
@@ -170,6 +186,7 @@ export function PortfolioForm() {
                 min={0}
                 value={monthlyAmount}
                 onChange={(e) => { setMonthlyAmount(e.target.value); setResult(null); }}
+                onFocus={(e) => e.target.select()}
                 className="pr-8"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">円</span>
@@ -184,6 +201,7 @@ export function PortfolioForm() {
                 max={50}
                 value={years}
                 onChange={(e) => { setYears(e.target.value); setResult(null); }}
+                onFocus={(e) => e.target.select()}
                 className="pr-8"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">年</span>
@@ -193,7 +211,12 @@ export function PortfolioForm() {
       </Card>
 
       {/* 実行ボタン */}
-      <Button className="w-full" size="lg" disabled={!isValid || isRunning} onClick={handleRun}>
+      <Button
+        className="w-full"
+        size="lg"
+        disabled={!isValid || isRunning}
+        onClick={handleRun}
+      >
         {isRunning ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
