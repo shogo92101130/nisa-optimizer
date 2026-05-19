@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, BarChart2, Shield } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AssetChart } from "@/components/charts/AssetChart";
+import { analyzeSimulation } from "@/utils/finance/advice";
 import type { SimulationResult } from "@/types";
 
 interface Props {
@@ -54,9 +55,24 @@ function MetricRow({
 export function SimulationResultCard({ result, years }: Props) {
   const profitRate = result.totalReturn;
   const isProfit = result.totalProfit >= 0;
+  const advice = analyzeSimulation(result);
+
+  const riskColor =
+    advice.riskLevel === "high" ? "bg-red-500/10 text-red-400 border-red-500/20" :
+    advice.riskLevel === "medium" ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" :
+    "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
 
   return (
     <div className="space-y-3">
+      {/* 一言コメント */}
+      <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${riskColor}`}>
+        <span className="text-xl">{advice.emoji}</span>
+        <div>
+          <p className="text-sm font-bold">{advice.headline}</p>
+          <p className="text-xs mt-0.5 opacity-90 leading-relaxed">{advice.detail}</p>
+        </div>
+      </div>
+
       {/* メイン結果 */}
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="pt-5 pb-4">
