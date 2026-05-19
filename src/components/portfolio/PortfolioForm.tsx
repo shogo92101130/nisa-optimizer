@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { FundSearch } from "./FundSearch";
 import { RecommendCards } from "./RecommendCards";
 import { AllocationPieChart } from "@/components/charts/AllocationPieChart";
-import { SimulationResultCard } from "@/components/simulation/SimulationResultCard";
 import { MOCK_FUNDS } from "@/mock/funds";
 import { runSimulation } from "@/utils/finance/calculations";
 import { NISA_LIMITS } from "@/constants/nisa";
@@ -25,7 +24,15 @@ const NISA_OPTIONS: { value: NisaType; label: string; limit: number; desc: strin
   { value: "seichoh",   label: "成長投資枠",     limit: NISA_LIMITS.seichoh,   desc: "年間240万円" },
 ];
 
-export function PortfolioForm() {
+interface Props {
+  onSimulationComplete: (
+    result: SimulationResult,
+    years: number,
+    entries: { fundId: string; allocation: number }[]
+  ) => void;
+}
+
+export function PortfolioForm({ onSimulationComplete }: Props) {
   const [entries, setEntries] = useState<PortfolioEntry[]>([]);
   const [monthlyAmount, setMonthlyAmount] = useState("30000");
   const [years, setYears] = useState("20");
@@ -33,7 +40,6 @@ export function PortfolioForm() {
   const [showSearch, setShowSearch] = useState(false);
   const [showRecommend, setShowRecommend] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
-  const [result, setResult] = useState<SimulationResult | null>(null);
 
   const totalAllocation = entries.reduce((s, e) => s + (parseInt(e.allocationStr, 10) || 0), 0);
   const isValid = entries.length > 0 && totalAllocation === 100 && Number(monthlyAmount) > 0 && Number(years) >= 1;
@@ -43,36 +49,37 @@ export function PortfolioForm() {
     const remaining = Math.max(0, 100 - totalAllocation);
     setEntries((prev) => [...prev, { fundId, allocationStr: String(remaining) }]);
     setShowSearch(false);
-    setResult(null);
+
   }
 
   function removeFund(fundId: string) {
     setEntries((prev) => prev.filter((e) => e.fundId !== fundId));
-    setResult(null);
+
   }
 
   function handleAllocationChange(fundId: string, raw: string) {
     const cleaned = raw === "" ? "" : String(Math.min(100, Math.max(0, parseInt(raw, 10) || 0)));
     setEntries((prev) => prev.map((e) => (e.fundId === fundId ? { ...e, allocationStr: cleaned } : e)));
-    setResult(null);
+
   }
 
   function applyRecommend(profile: RecommendProfile) {
     setEntries(profile.allocations.map((a) => ({ fundId: a.fundId, allocationStr: String(a.allocation) })));
     setShowRecommend(false);
-    setResult(null);
+
   }
 
   async function handleRun() {
     if (!isValid) return;
     setIsRunning(true);
-    setResult(null);
+
     await new Promise((r) => setTimeout(r, 0));
     try {
       const selectedNisa = NISA_OPTIONS.find((o) => o.value === nisaType)!;
       const nisa: NisaSettings = { type: nisaType, annualLimit: selectedNisa.limit };
       const portfolio = entries.map((e) => ({ fundId: e.fundId, allocation: parseInt(e.allocationStr, 10) || 0 }));
-      setResult(runSimulation({ portfolio, monthlyAmount: Number(monthlyAmount), years: Number(years), nisa, initialAmount: 0 }));
+      const res = runSimulation({ portfolio, monthlyAmount: Number(monthlyAmount), years: Number(years), nisa, initialAmount: 0 });
+      onSimulationComplete(res, Number(years), portfolio);
     } finally {
       setIsRunning(false);
     }
@@ -213,7 +220,7 @@ export function PortfolioForm() {
             <Label className="text-xs text-muted-foreground">月々の積立額</Label>
             <div className="relative">
               <Input type="number" min={0} value={monthlyAmount}
-                onChange={(e) => { setMonthlyAmount(e.target.value); setResult(null); }}
+                onChange={(e) => setMonthlyAmount(e.target.value)}
                 onFocus={(e) => e.target.select()}
                 className="pr-8"
               />
@@ -224,7 +231,7 @@ export function PortfolioForm() {
             <Label className="text-xs text-muted-foreground">積立期間</Label>
             <div className="relative">
               <Input type="number" min={1} max={50} value={years}
-                onChange={(e) => { setYears(e.target.value); setResult(null); }}
+                onChange={(e) => setYears(e.target.value)}
                 onFocus={(e) => e.target.select()}
                 className="pr-8"
               />
@@ -239,8 +246,6 @@ export function PortfolioForm() {
         {isRunning ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />計算中...</>) : "シミュレーション実行"}
       </Button>
 
-      {/* 結果 */}
-      {result && <SimulationResultCard result={result} years={Number(years)} />}
     </div>
   );
 }
