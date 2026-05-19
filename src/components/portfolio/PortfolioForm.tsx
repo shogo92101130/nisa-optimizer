@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { FundSearch } from "./FundSearch";
 import { RecommendCards } from "./RecommendCards";
 import { MOCK_FUNDS } from "@/mock/funds";
-import { runSimulation, mergeQuotaConfigs } from "@/utils/finance/calculations";
+import { runSimulation } from "@/utils/finance/calculations";
 import { NISA_LIMITS } from "@/constants/nisa";
 import type { RecommendProfile } from "@/constants/recommendations";
 import type { SimulationResult } from "@/types";
@@ -35,19 +35,18 @@ export function PortfolioForm({ onSimulationComplete }: Props) {
   const [showRecommend, setShowRecommend] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
 
-  // 各枠の合計配分
+  // 合計配分（両枠合わせて100%）
   const tsumiTotal   = tsumiEntries.reduce((s, e)   => s + (parseInt(e.allocationStr, 10) || 0), 0);
   const seichohTotal = seichohEntries.reduce((s, e) => s + (parseInt(e.allocationStr, 10) || 0), 0);
+  const combinedTotal = tsumiTotal + seichohTotal;
 
   // 年間消化額
   const tsumiAnnual   = (Number(tsumiMonthly) || 0) * 12;
   const seichohAnnual = (Number(seichohMonthly) || 0) * 12;
   const totalMonthly  = (Number(tsumiMonthly) || 0) + (Number(seichohMonthly) || 0);
 
-  const tsumiValid   = tsumiEntries.length === 0 || tsumiTotal === 100;
-  const seichohValid = seichohEntries.length === 0 || seichohTotal === 100;
-  const hasAnyFund   = tsumiEntries.length > 0 || seichohEntries.length > 0;
-  const isValid = hasAnyFund && tsumiValid && seichohValid && totalMonthly > 0 && Number(years) >= 1;
+  const hasAnyFund = tsumiEntries.length > 0 || seichohEntries.length > 0;
+  const isValid    = hasAnyFund && combinedTotal === 100 && totalMonthly > 0 && Number(years) >= 1;
 
   // おすすめ適用（つみたて枠に入れる）
   function applyRecommend(profile: RecommendProfile) {
@@ -81,10 +80,13 @@ export function PortfolioForm({ onSimulationComplete }: Props) {
     setIsRunning(true);
     await new Promise((r) => setTimeout(r, 0));
     try {
-      const tsumi   = { fundEntries: tsumiEntries.map((e) => ({ fundId: e.fundId, allocation: parseInt(e.allocationStr, 10) || 0 })), monthlyAmount: Number(tsumiMonthly) || 0 };
-      const seichoh = { fundEntries: seichohEntries.map((e) => ({ fundId: e.fundId, allocation: parseInt(e.allocationStr, 10) || 0 })), monthlyAmount: Number(seichohMonthly) || 0 };
-      const { portfolio, totalMonthly: tm } = mergeQuotaConfigs(tsumi, seichoh);
-      const res = runSimulation({ portfolio, monthlyAmount: tm, years: Number(years), nisa: { type: "both", annualLimit: NISA_LIMITS.total_annual }, initialAmount: 0 });
+      // 両枠の銘柄を合算（配分はすでに全体で100%）
+      const allEntries = [...tsumiEntries, ...seichohEntries];
+      const portfolio = allEntries.map((e) => ({
+        fundId: e.fundId,
+        allocation: parseInt(e.allocationStr, 10) || 0,
+      }));
+      const res = runSimulation({ portfolio, monthlyAmount: totalMonthly, years: Number(years), nisa: { type: "both", annualLimit: NISA_LIMITS.total_annual }, initialAmount: 0 });
       onSimulationComplete(res, Number(years), portfolio);
     } finally {
       setIsRunning(false);
@@ -114,13 +116,27 @@ export function PortfolioForm({ onSimulationComplete }: Props) {
         )}
       </Card>
 
+      {/* 合計バリデーション */}
+      {hasAnyFund && combinedTotal !== 100 && (
+        <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-destructive/10 text-destructive text-xs">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          <span>つみたて枠 + 成長枠の合計を100%にしてください（現在 {combinedTotal}%）</span>
+        </div>
+      )}
+      {hasAnyFund && combinedTotal === 100 && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 text-emerald-500 text-xs">
+          <span className="font-semibold">✓</span>
+          <span>配分合計 100%（つみたて {tsumiTotal}% ＋ 成長 {seichohTotal}%）</span>
+        </div>
+      )}
+
       {/* つみたて投資枠 */}
       <QuotaCard
         title="つみたて投資枠"
         color="blue"
         annualLimit={NISA_LIMITS.tsumitate}
         entries={tsumiEntries}
-        total={tsumiTotal}
+        subtotal={tsumiTotal}
         monthly={tsumiMonthly}
         annualUsed={tsumiAnnual}
         onMonthlyChange={setTsumiMonthly}
@@ -138,7 +154,7 @@ export function PortfolioForm({ onSimulationComplete }: Props) {
         color="violet"
         annualLimit={NISA_LIMITS.seichoh}
         entries={seichohEntries}
-        total={seichohTotal}
+        subtotal={seichohTotal}
         monthly={seichohMonthly}
         annualUsed={seichohAnnual}
         onMonthlyChange={setSeichohMonthly}
@@ -187,7 +203,7 @@ interface QuotaCardProps {
   color: "blue" | "violet";
   annualLimit: number;
   entries: Entry[];
-  total: number;
+  subtotal: number;  // この枠内の配分小計
   monthly: string;
   annualUsed: number;
   onMonthlyChange: (v: string) => void;
@@ -200,7 +216,7 @@ interface QuotaCardProps {
 }
 
 function QuotaCard({
-  title, color, annualLimit, entries, total, monthly, annualUsed,
+  title, color, annualLimit, entries, subtotal, monthly, annualUsed,
   onMonthlyChange, onAddClick, onRemove, onAllocationChange,
   showSearch, onSelectFund, nisaType,
 }: QuotaCardProps) {
@@ -289,11 +305,8 @@ function QuotaCard({
           );
         })}
 
-        {total !== 100 && entries.length > 0 && (
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-destructive/10 text-destructive text-xs">
-            <AlertCircle className="w-3 h-3 shrink-0" />
-            <span>合計 {total}%（100%にしてください）</span>
-          </div>
+        {entries.length > 0 && (
+          <p className="text-xs text-muted-foreground text-right">この枠の小計: {subtotal}%</p>
         )}
 
         {showSearch ? (
