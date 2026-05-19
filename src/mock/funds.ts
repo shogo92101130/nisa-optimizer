@@ -252,6 +252,15 @@ export const MOCK_FUNDS: Fund[] = [
 
   // NASDAQ100
   {
+    id: "eMAXIS-slim-nasdaq100",
+    name: "eMAXIS Slim 米国株式（NASDAQ100）",
+    category: "先進国株式",
+    nisaType: "seichoh",
+    monthlyReturns: genReturns(0.18, 0.28, 40),
+    expenseRatio: 0.2035,
+    annualReturn: 0.18,
+  },
+  {
     id: "rakuten-nasdaq100",
     name: "楽天・NASDAQ-100インデックス・ファンド",
     category: "先進国株式",
