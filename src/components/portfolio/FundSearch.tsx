@@ -22,11 +22,12 @@ const NISA_FILTERS = [
 interface FundSearchProps {
   onSelect: (fundId: string) => void;
   selectedIds: string[];
+  defaultNisaFilter?: "all" | "both" | "seichoh";
 }
 
-export function FundSearch({ onSelect, selectedIds }: FundSearchProps) {
+export function FundSearch({ onSelect, selectedIds, defaultNisaFilter = "all" }: FundSearchProps) {
   const [query, setQuery] = useState("");
-  const [nisaFilter, setNisaFilter] = useState<"all" | "both" | "seichoh">("all");
+  const [nisaFilter, setNisaFilter] = useState<"all" | "both" | "seichoh">(defaultNisaFilter);
 
   const filtered = MOCK_FUNDS.filter((f) => {
     if (selectedIds.includes(f.id)) return false;

@@ -1,6 +1,47 @@
 import { MonthlyRecord, PortfolioItem, SimulationInput, SimulationResult } from "@/types";
 import { MOCK_FUNDS } from "@/mock/funds";
 
+export type QuotaConfig = {
+  fundEntries: { fundId: string; allocation: number }[]; // 配分 0-100
+  monthlyAmount: number;
+};
+
+/** 2つの枠設定を合算して単一のPortfolioItem[]に変換 */
+export function mergeQuotaConfigs(
+  tsumitate: QuotaConfig,
+  seichoh: QuotaConfig
+): { portfolio: PortfolioItem[]; totalMonthly: number } {
+  const totalMonthly = tsumitate.monthlyAmount + seichoh.monthlyAmount;
+  if (totalMonthly === 0) return { portfolio: [], totalMonthly: 0 };
+
+  // 各銘柄の実際の月額を計算（枠月額 × 配分%）
+  const fundMap = new Map<string, number>();
+
+  for (const e of tsumitate.fundEntries) {
+    const amount = tsumitate.monthlyAmount * (e.allocation / 100);
+    fundMap.set(e.fundId, (fundMap.get(e.fundId) ?? 0) + amount);
+  }
+  for (const e of seichoh.fundEntries) {
+    const amount = seichoh.monthlyAmount * (e.allocation / 100);
+    fundMap.set(e.fundId, (fundMap.get(e.fundId) ?? 0) + amount);
+  }
+
+  // 月額ベースのウェイトをパーセントに変換
+  const portfolio: PortfolioItem[] = [];
+  for (const [fundId, amount] of fundMap.entries()) {
+    const allocation = Math.round((amount / totalMonthly) * 100);
+    if (allocation > 0) portfolio.push({ fundId, allocation });
+  }
+
+  // 端数調整（合計を100%に）
+  const total = portfolio.reduce((s, p) => s + p.allocation, 0);
+  if (total !== 100 && portfolio.length > 0) {
+    portfolio[0].allocation += 100 - total;
+  }
+
+  return { portfolio, totalMonthly };
+}
+
 /** 安全な除算（0除算対策） */
 export function safeDivide(a: number, b: number): number {
   if (b === 0 || !isFinite(b) || isNaN(b)) return 0;
