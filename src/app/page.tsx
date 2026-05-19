@@ -1,19 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, PieChart, TrendingUp, Settings } from "lucide-react";
+import { BarChart3, PieChart, TrendingUp, Landmark } from "lucide-react";
 import { PortfolioForm } from "@/components/portfolio/PortfolioForm";
 import { SimulationTab } from "@/components/simulation/SimulationTab";
 import { ChartsTab } from "@/components/charts/ChartsTab";
+import { NisaQuotaSection } from "@/components/nisa/NisaQuotaSection";
 import type { SimulationResult } from "@/types";
 
-type Tab = "portfolio" | "simulation" | "charts" | "settings";
+type Tab = "portfolio" | "simulation" | "charts" | "nisa";
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
-  { id: "portfolio",   label: "ポートフォリオ", icon: PieChart },
-  { id: "simulation",  label: "シミュレーション", icon: TrendingUp },
-  { id: "charts",      label: "グラフ",       icon: BarChart3 },
-  { id: "settings",    label: "設定",         icon: Settings },
+  { id: "portfolio",  label: "ポートフォリオ",    icon: PieChart },
+  { id: "simulation", label: "シミュレーション",  icon: TrendingUp },
+  { id: "charts",     label: "グラフ",           icon: BarChart3 },
+  { id: "nisa",       label: "NISA枠",           icon: Landmark },
 ];
 
 export default function Home() {
@@ -59,12 +60,7 @@ export default function Home() {
         {activeTab === "charts" && (
           <ChartsTab result={result} allocationEntries={allocationEntries} onGoToPortfolio={() => setActiveTab("portfolio")} />
         )}
-        {activeTab === "settings" && (
-          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-            <Settings className="w-10 h-10 mb-3 opacity-30" />
-            <p className="text-sm">設定は準備中です</p>
-          </div>
-        )}
+        {activeTab === "nisa" && <NisaQuotaSection />}
       </main>
 
       {/* Bottom Navigation */}
@@ -73,6 +69,7 @@ export default function Home() {
           {TABS.map(({ id, label, icon: Icon }) => {
             const hasResult = result !== null;
             const isDisabled = (id === "simulation" || id === "charts") && !hasResult;
+
             return (
               <button
                 key={id}
