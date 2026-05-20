@@ -21,17 +21,19 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("portfolio");
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [years, setYears] = useState(20);
+  const [monthlyAmount, setMonthlyAmount] = useState(0);
   const [allocationEntries, setAllocationEntries] = useState<{ fundId: string; allocation: number }[]>([]);
 
   function handleSimulationComplete(
     res: SimulationResult,
     y: number,
-    entries: { fundId: string; allocation: number }[]
+    entries: { fundId: string; allocation: number }[],
+    monthly: number
   ) {
     setResult(res);
     setYears(y);
     setAllocationEntries(entries);
-    // 実行後は自動でシミュレーションタブに切り替え
+    setMonthlyAmount(monthly);
     setActiveTab("simulation");
   }
 
@@ -55,7 +57,7 @@ export default function Home() {
           <PortfolioForm onSimulationComplete={handleSimulationComplete} />
         )}
         {activeTab === "simulation" && (
-          <SimulationTab result={result} years={years} onGoToPortfolio={() => setActiveTab("portfolio")} />
+          <SimulationTab result={result} years={years} monthlyAmount={monthlyAmount} allocationEntries={allocationEntries} onGoToPortfolio={() => setActiveTab("portfolio")} />
         )}
         {activeTab === "charts" && (
           <ChartsTab result={result} allocationEntries={allocationEntries} onGoToPortfolio={() => setActiveTab("portfolio")} />

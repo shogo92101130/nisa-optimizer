@@ -3,7 +3,6 @@
 import { TrendingUp, TrendingDown, BarChart2, Shield } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AssetChart } from "@/components/charts/AssetChart";
 import { analyzeSimulation } from "@/utils/finance/advice";
 import type { SimulationResult } from "@/types";
 
@@ -140,9 +139,6 @@ export function SimulationResultCard({ result, years }: Props) {
           />
         </CardContent>
       </Card>
-
-      {/* グラフ */}
-      <AssetChart records={result.records} />
 
       {/* リスク警告 */}
       {result.maxDrawdown > 0.3 && (

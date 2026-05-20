@@ -12,6 +12,7 @@ import { RecommendCards } from "./RecommendCards";
 import { MOCK_FUNDS } from "@/mock/funds";
 import { runSimulation } from "@/utils/finance/calculations";
 import { NISA_LIMITS } from "@/constants/nisa";
+import { usePortfolioStorage } from "@/hooks/usePortfolioStorage";
 import type { RecommendProfile } from "@/constants/recommendations";
 import type { SimulationResult } from "@/types";
 
@@ -21,16 +22,20 @@ interface Props {
   onSimulationComplete: (
     result: SimulationResult,
     years: number,
-    entries: { fundId: string; allocation: number }[]
+    entries: { fundId: string; allocation: number }[],
+    monthly: number
   ) => void;
 }
 
 export function PortfolioForm({ onSimulationComplete }: Props) {
-  const [tsumiEntries, setTsumiEntries] = useState<Entry[]>([]);
-  const [tsumiMonthly, setTsumiMonthly] = useState("30000");
-  const [seichohEntries, setSeichohEntries] = useState<Entry[]>([]);
-  const [seichohMonthly, setSeichohMonthly] = useState("0");
-  const [years, setYears] = useState("20");
+  const {
+    tsumiEntries, setTsumiEntries,
+    tsumiMonthly, setTsumiMonthly,
+    seichohEntries, setSeichohEntries,
+    seichohMonthly, setSeichohMonthly,
+    years, setYears,
+  } = usePortfolioStorage();
+
   const [showSearch, setShowSearch] = useState<"tsumi" | "seichoh" | null>(null);
   const [showRecommend, setShowRecommend] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
@@ -56,23 +61,25 @@ export function PortfolioForm({ onSimulationComplete }: Props) {
 
   function addFund(target: "tsumi" | "seichoh", fundId: string) {
     const entries = target === "tsumi" ? tsumiEntries : seichohEntries;
-    const setEntries = target === "tsumi" ? setTsumiEntries : setSeichohEntries;
-    const total = target === "tsumi" ? tsumiTotal : seichohTotal;
+    const total   = target === "tsumi" ? tsumiTotal   : seichohTotal;
     if (entries.find((e) => e.fundId === fundId)) return;
     const remaining = Math.max(0, 100 - total);
-    setEntries((prev) => [...prev, { fundId, allocationStr: String(remaining) }]);
+    const next = [...entries, { fundId, allocationStr: String(remaining) }];
+    if (target === "tsumi") setTsumiEntries(next); else setSeichohEntries(next);
     setShowSearch(null);
   }
 
   function removeFund(target: "tsumi" | "seichoh", fundId: string) {
-    const setter = target === "tsumi" ? setTsumiEntries : setSeichohEntries;
-    setter((prev) => prev.filter((e) => e.fundId !== fundId));
+    const entries = target === "tsumi" ? tsumiEntries : seichohEntries;
+    const next = entries.filter((e) => e.fundId !== fundId);
+    if (target === "tsumi") setTsumiEntries(next); else setSeichohEntries(next);
   }
 
   function updateAllocation(target: "tsumi" | "seichoh", fundId: string, raw: string) {
-    const setter = target === "tsumi" ? setTsumiEntries : setSeichohEntries;
+    const entries = target === "tsumi" ? tsumiEntries : seichohEntries;
     const cleaned = raw === "" ? "" : String(Math.min(100, Math.max(0, parseInt(raw, 10) || 0)));
-    setter((prev) => prev.map((e) => (e.fundId === fundId ? { ...e, allocationStr: cleaned } : e)));
+    const next = entries.map((e) => (e.fundId === fundId ? { ...e, allocationStr: cleaned } : e));
+    if (target === "tsumi") setTsumiEntries(next); else setSeichohEntries(next);
   }
 
   async function handleRun() {
@@ -87,7 +94,7 @@ export function PortfolioForm({ onSimulationComplete }: Props) {
         allocation: parseInt(e.allocationStr, 10) || 0,
       }));
       const res = runSimulation({ portfolio, monthlyAmount: totalMonthly, years: Number(years), nisa: { type: "both", annualLimit: NISA_LIMITS.total_annual }, initialAmount: 0 });
-      onSimulationComplete(res, Number(years), portfolio);
+      onSimulationComplete(res, Number(years), portfolio, totalMonthly);
     } finally {
       setIsRunning(false);
     }

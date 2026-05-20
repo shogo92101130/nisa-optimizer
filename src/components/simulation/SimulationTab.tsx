@@ -3,15 +3,18 @@
 import { TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SimulationResultCard } from "./SimulationResultCard";
+import { OptimizerSection } from "./OptimizerSection";
 import type { SimulationResult } from "@/types";
 
 interface Props {
   result: SimulationResult | null;
   years: number;
+  monthlyAmount: number;
+  allocationEntries: { fundId: string; allocation: number }[];
   onGoToPortfolio: () => void;
 }
 
-export function SimulationTab({ result, years, onGoToPortfolio }: Props) {
+export function SimulationTab({ result, years, monthlyAmount, allocationEntries, onGoToPortfolio }: Props) {
   if (!result) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-muted-foreground space-y-4">
@@ -27,5 +30,14 @@ export function SimulationTab({ result, years, onGoToPortfolio }: Props) {
     );
   }
 
-  return <SimulationResultCard result={result} years={years} />;
+  return (
+    <div className="space-y-4">
+      <SimulationResultCard result={result} years={years} />
+      <OptimizerSection
+        fundIds={allocationEntries.map((e) => e.fundId)}
+        monthlyAmount={monthlyAmount}
+        years={years}
+      />
+    </div>
+  );
 }

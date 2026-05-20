@@ -4,6 +4,8 @@ import { BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AssetChart } from "./AssetChart";
 import { AllocationPieChart } from "./AllocationPieChart";
+import { AnnualReturnChart } from "./AnnualReturnChart";
+import { DrawdownChart } from "./DrawdownChart";
 import type { SimulationResult } from "@/types";
 
 interface Props {
@@ -37,6 +39,12 @@ export function ChartsTab({ result, allocationEntries, onGoToPortfolio }: Props)
 
       {/* 資産推移 */}
       <AssetChart records={result.records} />
+
+      {/* 年次リターン */}
+      <AnnualReturnChart records={result.records} />
+
+      {/* ドローダウン */}
+      <DrawdownChart records={result.records} />
     </div>
   );
 }
