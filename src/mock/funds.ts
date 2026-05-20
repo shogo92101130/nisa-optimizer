@@ -278,16 +278,6 @@ export const MOCK_FUNDS: Fund[] = [
     expenseRatio: 0.495,
     annualReturn: 0.17,
   },
-  {
-    id: "sbi-v-nasdaq100",
-    name: "SBI・V・米国高配当株式インデックス・ファンド",
-    category: "先進国株式",
-    nisaType: "seichoh",
-    monthlyReturns: genReturns(0.10, 0.18, 27),
-    expenseRatio: 0.1238,
-    annualReturn: 0.10,
-  },
-
   // FANG+
   {
     id: "ifree-fangplus",
